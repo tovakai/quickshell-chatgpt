@@ -9,7 +9,11 @@ if ! command -v timeout >/dev/null; then
   echo 'Need the coreutils timeout command' >&2
   exit 1
 fi
-qs="$(command -v quickshell || command -v qs || true)"
+qs="${MABEL_QS_BINARY:-$(command -v quickshell || command -v qs || true)}"
+if [[ -n "${MABEL_QS_BINARY:-}" && ! -x "$qs" ]]; then
+  echo "MABEL_QS_BINARY is not executable: $qs" >&2
+  exit 1
+fi
 if [[ -z "$qs" ]]; then
   echo 'Quickshell executable not found (quickshell/qs)' >&2
   exit 1
