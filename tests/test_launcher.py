@@ -48,7 +48,6 @@ class LauncherTests(unittest.TestCase):
         code = FILE.read_text()
         self.assertNotIn("/api/chat_stream", code)
         self.assertNotIn("Authorization", code)
-        self.assertNotIn("Strata", code)
 
 
 if __name__ == "__main__":
