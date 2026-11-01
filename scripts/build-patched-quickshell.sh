@@ -56,4 +56,4 @@ MABEL_QS_BINARY="$patched" bash "$repo/scripts/check-webengine.sh"
 echo
 echo 'Patched Quickshell passed the isolated WebEngine startup test.'
 echo 'Your active end-4 shell and system quickshell have NOT been changed.'
-echo 'Next: MABEL_QS_BINARY="'"$patched"'" MABEL_URL="https://tovakai.tail4312a5.ts.net/" bash ./install.sh'
+echo 'Next: MABEL_QS_BINARY="'"$patched"'" MABEL_URL="https://YOUR-MABEL-WEBUI-URL/" bash ./install.sh'
