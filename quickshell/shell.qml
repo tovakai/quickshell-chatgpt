@@ -20,6 +20,7 @@ PanelWindow {
     property string connection: "Connecting to Mabel…"
     property string activity: ""
     property bool busy: false
+    property bool approvalPending: false
     property int activeReply: -1
     property string mode: "agent"
 
@@ -35,6 +36,7 @@ PanelWindow {
         activeReply = -1
         conversation.clear()
         activity = ""
+        approvalPending = false
         call({op: "history", session: sid})
     }
     function refresh() {
@@ -48,6 +50,7 @@ PanelWindow {
         conversation.append({messageRole: "assistant", messageText: ""})
         activeReply = conversation.count - 1
         busy = true
+        approvalPending = false
         activity = "Mabel is working…"
         call({op: "send", session: currentSession, message: value, mode: mode})
         composer.text = ""
@@ -97,14 +100,16 @@ PanelWindow {
             if (!event.session || event.session === currentSession)
                 activity = event.message || ""
         } else if (event.type === "approval_needed") {
-            if (event.session === currentSession)
+            if (event.session === currentSession) {
+                approvalPending = true
                 activity = "Approval needed in Mabel: " + (event.message || "Review the proposed action")
+            }
         } else if (event.type === "begin") {
             busy = true
         } else if (event.type === "done") {
             busy = false
             activeReply = -1
-            activity = "Turn complete"
+            if (!approvalPending) activity = "Turn complete"
             call({op: "history", session: event.session})
             call({op: "sessions"})
         } else if (event.type === "error") {
