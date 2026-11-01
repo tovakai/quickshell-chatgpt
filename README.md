@@ -1,49 +1,62 @@
-# Mabel in end-4's real AI sidebar
+# Mabel in end-4's actual Win+A left sidebar
 
-This is **not** a second sidebar, not a fake browser window, and not a reduced API-token client.
+**Behavioral contract:** Win+A opens/closes end-4's EXISTING left sidebar. Same animation, focus, Escape, outside-click dismissal, pinning and detachment. Only the AI tab changes: it embeds Mabel's original responsive WebUI through QtWebEngine. Mabel itself handles sessions, memory, agent tools, browser login and interactive tool approvals. No API-token bridge; no separate Chromium window; no direct Strata calls.
 
-It replaces **only** end-4's existing \`AiChat.qml\` content with a \`WebEngineView\` running the **original Mabel/Odysseus mobile WebUI**. end-4's \`SidebarLeft.qml\`, \`SidebarLeftContent.qml\`, global keybindings and IPC are unchanged.
+This is a drop-in replacement for end-4 `AiChat.qml`, **not** a second Quickshell configuration. The existing `SidebarLeft.qml` and Hyprland keybind are left alone.
 
-Expected behavior is therefore inherited directly from end-4:
-- **Win+A** toggles the existing **LEFT** sidebar (same \`quickshell:sidebarLeftToggle\`).
-- Escape / click-outside dismiss, same focus management, pin, detach, and width animation.
-- The original chat tab, panel design, app integration and mobile width stay owned by end-4.
-- Mabel's original WebUI owns chat, uploads, login/cookies, interactive tool approvals, memory, agent execution, session state and model routing.
-- All LLM traffic goes through **Mabel/Odysseus**. Never directly to Strata.
+## Reproduced Quickshell crash, and the fix
 
-## One actual dependency: QtWebEngine-enabled Quickshell
+On stock Quickshell 0.3.2, QtWebEngine aborts because `src/launch/launch.cpp` passes `argc=0` to `QGuiApplication`. Qt requires `argc>=1`; see https://github.com/quickshell-mirror/quickshell/issues/1393 . The one-line source patch included here changes `auto qArgC = 0;` to `auto qArgC = 1;`.
 
-Stock Quickshell 0.3.2 currently has an upstream bug where constructing \`WebEngineView\` crashes the process because its Qt application receives argc=0. See https://github.com/quickshell-mirror/quickshell/issues/1393.
+The installer runs an isolated startup test first and refuses to modify the actual end-4 config unless that probe passes. **Do not skip the test on the stock binary.**
 
-The real fix is an upstream **one-line launcher patch** (\`auto qArgC = 0;\` → \`auto qArgC = 1;\`, see \`patches/quickshell-webengine-argc.patch\`) and rebuilding Quickshell, or using a fixed upstream build when available.
+### Step 1: build a separate, patched Quickshell without touching the active desktop
 
-**Do not inject a WebEngineView into the existing running end-4 shell until it can be started safely.** \`install.sh\` runs an isolated Quickshell process with a harmless about:blank WebEngineView first. If that probe crashes or fails, installation stops without modifying the end-4 config. The probe does not affect the existing running Quickshell process.
+On Arch, from this repo:
 
-## Install on Arch + end-4
+    sudo pacman -S --needed base-devel cmake ninja cli11 qt6-shadertools spirv-tools vulkan-headers wayland-protocols qt6-webengine
+    bash scripts/build-patched-quickshell.sh
 
-Requires \`qt6-webengine\`, Python 3, end-4's actual \`~/.config/quickshell/ii\` config, and a WebEngine-compatible Quickshell build.
+The helper checks out tagged upstream `v0.3.2`, applies the one-line patch, builds to `~/.local/share/mabel-quickshell/bin/quickshell`, and runs the QtWebEngine test using that binary in an **isolated process**. It never overwrites `/usr/bin/quickshell` or restarts end-4. It may need extra CMake dependencies enabled by your distro; build errors are reported.
 
-    sudo pacman -S qt6-webengine
-    git clone -b feat/mabel-quickshell-interface-20261101 https://github.com/tovakai/quickshell-chatgpt.git
-    cd quickshell-chatgpt
-    MABEL_URL=https://YOUR-MABEL-TAILSCALE-URL/ bash install.sh
+**Stop here if the build or isolated probe fails.** Keep your existing end-4 shell unchanged.
 
-The installer detects \`~/.config/quickshell/ii/modules/ii/sidebarLeft/AiChat.qml\`. If yours is elsewhere, set \`QS_CONFIG_DIR=/actual/path/to/ii\`. It saves the original file as \`AiChat.qml.before-mabel\` and replaces only that file. Reload your existing end-4 Quickshell process, then hit **Win+A**.
+### Step 2: deliberate switchover (ONLY after private build passes)
 
-**No separate launcher, hotkey or Chromium profile is needed.** Log in to Mabel once inside the sidebar; the QtWebEngine profile persists cookies.
+The installer now refuses to replace the live AI tab while **any Quickshell instance is running**. This prevents end-4 hot-reload from crashing an unpatched process.
 
-**Uninstall and restore the original end-4 AI:**
+Before changing anything, make sure you know how your end-4 shell starts on login. You must change its autostart command to the private patched binary or the next desktop login will load the unpatched executable. The location of your current end-4 config may differ; the default is `~/.config/quickshell/ii`.
+
+Once the private binary is known good and you are ready to switch, end-4's named instance can be stopped with:
+
+    quickshell kill -c ii
+
+Then install the replacement AI view while Quickshell is stopped:
+
+    MABEL_QS_BINARY="$HOME/.local/share/mabel-quickshell/bin/quickshell" \
+      MABEL_URL="https://YOUR-MABEL-WEBUI-URL/" bash install.sh
+
+Start the patched shell with:
+
+    "$HOME/.local/share/mabel-quickshell/bin/quickshell" -c ii
+
+Now Win+A should toggle the original end-4 left sidebar containing Mabel's mobile WebUI. Sign in inside the embedded view once for its persistent browser cookies. **Live UI parity still needs testing**; CI only checks the installer and QML structure.
+
+### Roll back
+
+If the integrated webview misbehaves, **stop the patched shell** and restore the saved end-4 AI component:
 
     bash install.sh restore
 
-Then reload the existing end-4 Quickshell instance.
+Then start your original Quickshell binary/config and restore any changed startup command. The installer preserves `AiChat.qml.before-mabel`.
 
-## Safety and current status
+## Installation safety
 
-- A confirmed-safe WebEngine build is a **prerequisite**, not something this repo can claim is fixed on your machine.
-- \`tests/webengine-probe.qml\` runs in a separate Quickshell process so the original desktop remains safe during dependency checks.
-- \`MABEL_SKIP_WEBENGINE_CHECK=1\` is provided for CI and developers who accept the risk; do not use it on an unpatched stock build.
-- GitHub CI verifies install/restore and QML integration structure. Live rendering and login on your particular Hyprland desktop remain untested.
-- The installed QML embeds Mabel's responsive browser UI rather than recreating functionality with an API bridge.
+- No changes to Odysseus, Strata or Hyprland keybindings.
+- No standalone floating app window.
+- No new QtWebEngine-containing code is placed in the active shell while the old shell is running.
+- The optional `MABEL_QS_BINARY` env var selects a patched test binary. It does not install or replace a binary.
+- `MABEL_SKIP_WEBENGINE_CHECK=1` exists only for CI/development; do not use it on stock Quickshell.
+- Existing end-4 instance MUST use the patched binary when `AiChat.qml` contains QtWebEngine. The repo cannot automatically change your unknown systemd/Hyprland startup setup.
 
-This repository modifies neither the Mabel backend nor Strata.
+The implementation is tracked in [PR #1](https://github.com/tovakai/quickshell-chatgpt/pull/1); remains draft pending a real end-4 smoke test.
