@@ -1,0 +1,6 @@
+diff --git a/src/launch/launch.cpp b/src/launch/launch.cpp
+--- a/src/launch/launch.cpp
++++ b/src/launch/launch.cpp
+@@
+-	auto qArgC = 0;
++	auto qArgC = 1;

@@ -1,65 +1,49 @@
-# Mabel WebUI for Quickshell / Hyprland
+# Mabel in end-4's real AI sidebar
 
-**The entire original Mabel/Odysseus WebUI, not a separate chat client.**
+This is **not** a second sidebar, not a fake browser window, and not a reduced API-token client.
 
-We display Mabel's normal WebUI in a narrow Chromium app window, floated on the right by Hyprland. The existing mobile layout activates automatically at viewport widths below 768px. This means full chat history, interactive tool approvals, memory, agent features, attachments, model routing and everything else the WebUI already provides.
+It replaces **only** end-4's existing \`AiChat.qml\` content with a \`WebEngineView\` running the **original Mabel/Odysseus mobile WebUI**. end-4's \`SidebarLeft.qml\`, \`SidebarLeftContent.qml\`, global keybindings and IPC are unchanged.
 
-    Optional Quickshell edge tab → local mabel-webui launcher → Chromium --app=MABEL_URL
-                                                                     ↓
-                                                 The real Mabel/Odysseus WebUI
-                                                                     ↓
-                                           Odysseus memory, tools, approvals
-                                                                     ↓
-                                                 Selected model via Strata etc.
+Expected behavior is therefore inherited directly from end-4:
+- **Win+A** toggles the existing **LEFT** sidebar (same \`quickshell:sidebarLeftToggle\`).
+- Escape / click-outside dismiss, same focus management, pin, detach, and width animation.
+- The original chat tab, panel design, app integration and mobile width stay owned by end-4.
+- Mabel's original WebUI owns chat, uploads, login/cookies, interactive tool approvals, memory, agent execution, session state and model routing.
+- All LLM traffic goes through **Mabel/Odysseus**. Never directly to Strata.
 
-There are **no API-token restrictions**, because Mabel authenticates normally in the embedded browser-app window using its own login page/cookies. A separate Chromium profile lives under ~/.local/share/mabel-webui/chromium; you may need to log in once even if Firefox is already authenticated.
+## One actual dependency: QtWebEngine-enabled Quickshell
 
-## Install
+Stock Quickshell 0.3.2 currently has an upstream bug where constructing \`WebEngineView\` crashes the process because its Qt application receives argc=0. See https://github.com/quickshell-mirror/quickshell/issues/1393.
 
-Requires Arch/Hyprland, Chromium and Python 3:
+The real fix is an upstream **one-line launcher patch** (\`auto qArgC = 0;\` → \`auto qArgC = 1;\`, see \`patches/quickshell-webengine-argc.patch\`) and rebuilding Quickshell, or using a fixed upstream build when available.
 
-    sudo pacman -S chromium
+**Do not inject a WebEngineView into the existing running end-4 shell until it can be started safely.** \`install.sh\` runs an isolated Quickshell process with a harmless about:blank WebEngineView first. If that probe crashes or fails, installation stops without modifying the end-4 config. The probe does not affect the existing running Quickshell process.
+
+## Install on Arch + end-4
+
+Requires \`qt6-webengine\`, Python 3, end-4's actual \`~/.config/quickshell/ii\` config, and a WebEngine-compatible Quickshell build.
+
+    sudo pacman -S qt6-webengine
     git clone -b feat/mabel-quickshell-interface-20261101 https://github.com/tovakai/quickshell-chatgpt.git
     cd quickshell-chatgpt
-    bash install.sh
+    MABEL_URL=https://YOUR-MABEL-TAILSCALE-URL/ bash install.sh
 
-Launch/toggle the Mabel window:
+The installer detects \`~/.config/quickshell/ii/modules/ii/sidebarLeft/AiChat.qml\`. If yours is elsewhere, set \`QS_CONFIG_DIR=/actual/path/to/ii\`. It saves the original file as \`AiChat.qml.before-mabel\` and replaces only that file. Reload your existing end-4 Quickshell process, then hit **Win+A**.
 
-    ~/.local/bin/mabel-webui toggle
+**No separate launcher, hotkey or Chromium profile is needed.** Log in to Mabel once inside the sidebar; the QtWebEngine profile persists cookies.
 
-By default it loads **Mabel** at http://127.0.0.1:7000, never Strata. If your active Mabel is behind a localhost tunnel on 7001:
+**Uninstall and restore the original end-4 AI:**
 
-    MABEL_URL=http://127.0.0.1:7001 ~/.local/bin/mabel-webui toggle
+    bash install.sh restore
 
-You can also set MABEL_BROWSER to the executable of another Chromium-based browser that supports --app.
+Then reload the existing end-4 Quickshell instance.
 
-## Quickshell edge button (optional)
+## Safety and current status
 
-    quickshell -p ~/.config/quickshell/mabel/shell.qml
+- A confirmed-safe WebEngine build is a **prerequisite**, not something this repo can claim is fixed on your machine.
+- \`tests/webengine-probe.qml\` runs in a separate Quickshell process so the original desktop remains safe during dependency checks.
+- \`MABEL_SKIP_WEBENGINE_CHECK=1\` is provided for CI and developers who accept the risk; do not use it on an unpatched stock build.
+- GitHub CI verifies install/restore and QML integration structure. Live rendering and login on your particular Hyprland desktop remain untested.
+- The installed QML embeds Mabel's responsive browser UI rather than recreating functionality with an API bridge.
 
-The 36px "M" tab toggles the actual WebUI app window. Quickshell **does not** embed Chromium, and won't crash on the currently reported Quickshell QtWebEngine issue. It does not need any model provider configuration.
-
-For a keyboard toggle, add this in your Hyprland config (adjust the home path):
-
-    bind = SUPER, M, exec, /home/YOUR_USER/.local/bin/mabel-webui toggle
-
-If needed, prefix the launch command with the MABEL_URL environment variable. For the Quickshell button, MABEL_URL must be in Quickshell's environment when started.
-
-## Differences from native embedding
-
-This is a floating browser-app window controlled by Hyprland, **not** a QML WebEngineView. It looks and behaves like Mabel's mobile WebUI and retains its full capabilities, but the window remains a separate Chromium process. Closing/toggling the window does not delete Mabel chats or browser cookies. A running detached Mabel agent may continue server-side.
-
-The browser profile is separate from Firefox. The login is the original Mabel interactive login, not an Odysseus API token.
-
-There is currently an upstream Quickshell 0.3.2 bug on Arch where WebEngineView can terminate Quickshell because it passes argc=0 to Qt. Avoiding direct embedding is intentional.
-
-## Files
-
-- scripts/mabel-webui: browser app window launch/close, selection, Hyprland placement.
-- quickshell/shell.qml: optional tiny edge launcher only.
-- install.sh: installs the helper and Quickshell launcher separately.
-- tests/test_launcher.py: offline geometry, routing and window identification tests.
-
-This feature branch is not yet visually tested on your actual Arch desktop. If native Chromium produces an unexpected app_id, inspect with hyprctl clients -j so we can tighten the window selector.
-
-The earlier Python chat API bridge is **removed** from this branch.
+This repository modifies neither the Mabel backend nor Strata.

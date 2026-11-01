@@ -1,33 +1,16 @@
-# Architecture
+# Architecture: reuse end-4's actual sidebar
 
-## The one and only chat interface
+end-4 Super+A keybinding => quickshell:sidebarLeftToggle
+     => end-4 SidebarLeft.qml / GlobalStates.sidebarLeftOpen
+     => end-4 SidebarLeftContent.qml / AI tab
+     => replace ONLY AiChat.qml with a QtWebEngine WebEngineView
+     => original Mabel/Odysseus mobile WebUI at configured URL
+     => normal interactive browser login, persistent cookies
+     => normal Mabel tools, approvals, chat SSE, memory, sessions, models
+     => Odysseus routes to inference provider (Strata or other)
 
-    Quickshell edge button or Hyprland keybind
-               ↓
-    Local window launcher (no Mabel API access)
-               ↓
-    Chromium app-mode narrow floating window
-               ↓
-    Real Mabel/Odysseus browser UI, including its normal login and interactive approvals
-               ↓
-    Odysseus backend: sessions, persistent memory, tools, authorization, SSE, models
-               ↓
-    Selected inference backend, possibly Strata
+No new PanelWindow, no new browser window, no new hotkey, no API-token bridge. Sidebar interaction remains end-4's existing code.
 
-The launcher never contacts chat or inference HTTP endpoints and never receives authorization cookies. Chromium owns all WebUI networking. No custom memory, tool approval, chat SSE, or provider routing code exists in this repo.
+**Compatibility blocker:** current Quickshell 0.3.2 constructs its Qt app with argc=0 and QtWebEngine aborts. A fixed / one-line patched Quickshell is required. The installer first launches an isolated QML WebEngine probe, refusing to modify the end-4 AI component on crash.
 
-At width 480px, the WebUI's built-in mobile rules (<=768px) activate.
-
-## Windowing decision
-
-Current Quickshell 0.3.2 on Arch is reported to crash on QtWebEngineView because Quickshell constructs its QGuiApplication with argc=0. Avoid risking the running desktop shell: the Quickshell panel only triggers a dedicated Chromium app-mode window, with Hyprland managing its size and location.
-
-The browser is a separate process, not composited inside the QML layer-shell surface. If native Quickshell WebEngine becomes safe, direct embedding can be evaluated separately without rewriting Mabel.
-
-## Authentication
-
-The Chromium profile uses Mabel's native cookie-based interactive authentication, and the backend applies its normal CSRF, ownership, and tool-approval checks. Signing in once in that dedicated profile is expected. No delegated API bearer token is used.
-
-## Follow-up
-
-Verify browser app_id with hyprctl clients -j on the actual machine; then consider a non-destructive hide/show toggle and integration into the existing end-4 Quickshell config.
+The replacement component inherits focus when the SwipeView focuses its page. The existing parent SidebarLeft handles Escape, dismiss, pin, detach and animation. QtWebEngine persists its own browser storage and cookies.
