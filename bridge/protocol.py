@@ -1,79 +1,63 @@
-"""Pure request validation and SSE parsing; never stores or fetches credentials."""
-
-from __future__ import annotations
+"""Mabel's SSE transport decoder. No OpenAI/Strata request schema lives here."""
 
 import json
-from collections.abc import Iterable, Iterator
 
 
-class ProtocolError(ValueError):
-    """Invalid inference request or interrupted response."""
+class BridgeError(RuntimeError):
+    """A backend or transport error suitable for presentation to the user."""
 
 
-def build_request(model: str, messages: list[dict[str, str]], instructions: str | None = None) -> dict:
-    """Build an SIWC-compatible Responses request (not an API-key request)."""
-    if not isinstance(model, str) or not model.strip():
-        raise ProtocolError("model must be a non-empty string")
-    if not isinstance(messages, list) or not messages:
-        raise ProtocolError("messages must be a non-empty list")
-    allowed = {"user", "assistant", "developer"}
-    items = []
-    for msg in messages:
-        if not isinstance(msg, dict) or msg.get("role") not in allowed:
-            raise ProtocolError("unsupported message role")
-        content = msg.get("content")
-        if not isinstance(content, str) or not content.strip():
-            raise ProtocolError("message content must be non-empty text")
-        items.append({"role": msg["role"], "content": content})
-    payload = {"model": model, "input": items, "store": False, "stream": True}
-    if instructions:
-        payload["instructions"] = instructions
-    return payload
+def sse_events(lines):
+    """Yield JSON Mabel events and an explicit done marker from an SSE byte stream.
 
-
-def parse_sse_lines(lines: Iterable[str]) -> Iterator[dict]:
-    """Read data events from a text/event-stream response. Caller handles terminal events.
-
-    Handles multi-line SSE data, blank-line event boundaries, comments and [DONE].
-    This is a transport parser, not a ChatGPT sign-in or inference client.
+    HTTPResponse iterates over byte lines. SSE may split data over multiple
+    lines and include heartbeat comments and named events.
     """
-    data_lines: list[str] = []
+    data = []
+    event_type = "message"
+
+    def emit():
+        if not data:
+            return None
+        payload = "\n".join(data)
+        if payload == "[DONE]":
+            return {"type": "done"}
+        try:
+            decoded = json.loads(payload)
+        except ValueError as exc:
+            raise BridgeError("Mabel returned malformed SSE JSON") from exc
+        if not isinstance(decoded, dict):
+            raise BridgeError("Mabel returned a non-object SSE event")
+        decoded["_sse_event"] = event_type
+        return decoded
+
     for raw in lines:
-        line = raw.rstrip("\r\n")
+        line = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else raw
+        line = line.rstrip("\r\n")
         if not line:
-            if data_lines:
-                payload = "\n".join(data_lines)
-                data_lines.clear()
-                if payload == "[DONE]":
-                    return
-                try:
-                    obj = json.loads(payload)
-                except json.JSONDecodeError as exc:
-                    raise ProtocolError("invalid JSON in SSE data event") from exc
-                if not isinstance(obj, dict):
-                    raise ProtocolError("SSE data event must be a JSON object")
-                yield obj
+            item = emit()
+            if item is not None:
+                yield item
+            data = []
+            event_type = "message"
+        elif line.startswith(":"):
             continue
-        if line.startswith(":"):
-            continue
-        if line.startswith("data:"):
-            data_lines.append(line[5:].lstrip(" "))
-    if data_lines:
-        raise ProtocolError("stream ended with an unterminated SSE event")
+        elif line.startswith("data:"):
+            data.append(line[5:].lstrip(" "))
+        elif line.startswith("event:"):
+            event_type = line[6:].strip()
+    item = emit()
+    if item is not None:
+        yield item
 
 
-def stream_text(lines: Iterable[str]) -> Iterator[str]:
-    """Yield output text deltas, requiring successful response.completed."""
-    completed = False
-    for event in parse_sse_lines(lines):
-        kind = event.get("type")
-        if kind == "response.output_text.delta":
-            delta = event.get("delta")
-            if isinstance(delta, str):
-                yield delta
-        elif kind in ("response.failed", "response.incomplete", "error"):
-            raise ProtocolError(f"inference failed: {kind}")
-        elif kind == "response.completed":
-            completed = True
-    if not completed:
-        raise ProtocolError("stream ended without response.completed")
+def visible_content(value):
+    """Flatten persisted text-block history without exposing hidden tool events."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "\n".join(
+            item["text"] for item in value
+            if isinstance(item, dict) and isinstance(item.get("text"), str)
+        )
+    return ""
