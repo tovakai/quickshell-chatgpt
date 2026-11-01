@@ -1,7 +1,5 @@
-# Quickshell adapter (planned)
+# End-4 integration
 
-Target: end-4 illogical-impulse `~/.config/quickshell/ii`.
+The prior standalone \`shell.qml\` panel was the wrong approach and is no longer part of this branch. The integration is \`../end4/AiChat.qml\`, copied into the existing \`~/.config/quickshell/ii/modules/ii/sidebarLeft/AiChat.qml\` only after saving a backup and passing an isolated QtWebEngine startup check.
 
-Existing installation uses `services/Ai.qml`, `services/ai/*ApiStrategy.qml`, and `modules/ii/sidebarLeft/AiChat.qml`. A future adapter should preserve Gemini and Mistral, avoid storing credentials in QML, and talk to the local bridge over a restricted channel.
-
-No production QML plugin or installer exists in v0.0.1. **Do not replace or modify your live dots using this directory yet.**
+All end-4 sidebar behavior stays in its original code: Win+A, focus, dismissal, pinning, detachment and animations.

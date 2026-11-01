@@ -1,39 +1,16 @@
-# Architecture and security boundaries
+# Architecture: reuse end-4's actual sidebar
 
-## Intended data flow
+end-4 Super+A keybinding => quickshell:sidebarLeftToggle
+     => end-4 SidebarLeft.qml / GlobalStates.sidebarLeftOpen
+     => end-4 SidebarLeftContent.qml / AI tab
+     => replace ONLY AiChat.qml with a QtWebEngine WebEngineView
+     => original Mabel/Odysseus mobile WebUI at configured URL
+     => normal interactive browser login, persistent cookies
+     => normal Mabel tools, approvals, chat SSE, memory, sessions, models
+     => Odysseus routes to inference provider (Strata or other)
 
-```text
-end-4 AI sidebar (QML)
-    | stdin/stdout or private local IPC (design TBD)
-    v
-unprivileged bridge process
-    | OAuth PKCE login, protected token storage, refresh
-    | HTTPS: model list and streamed Responses inference
-    v
-OpenAI public endpoints (never ChatGPT backend-api)
-```
+No new PanelWindow, no new browser window, no new hotkey, no API-token bridge. Sidebar interaction remains end-4's existing code.
 
-The end-4 sidebar currently uses a `Process` + `SplitParser` and separate Gemini/OpenAI/Mistral strategies. We should add a separate provider/bridge adapter instead of patching its existing OpenAI API-key strategy or copying API tokens into QML.
+**Compatibility blocker:** current Quickshell 0.3.2 constructs its Qt app with argc=0 and QtWebEngine aborts. A fixed / one-line patched Quickshell is required. The installer first launches an isolated QML WebEngine probe, refusing to modify the end-4 AI component on crash.
 
-## Authentication contract (not implemented)
-
-Follow the [official OSS SIWC flow](https://developers.openai.com/siwc/token-sharing-open-source/sign-in):
-
-- Stable `ext_agent_host_id` per installation.
-- Dynamic first-time registration; save issued client ID **per verified ChatGPT account/workspace**.
-- New state, nonce and PKCE verifier for each attempt; local loopback callback.
-- Verify ID token signature with JWKS, issuer, audience, expiry and nonce before accepting identity.
-- Require `chatgpt.tokens.use.direct` before attempting plan-backed inference.
-- Protect credentials; refresh tokens rotate and must be serialized. No credentials in logs, QML or repository.
-- Never reuse ~/.codex authentication files or scrape browser cookies.
-- Handle sign-out/revocation, multiple accounts and explicit consent.
-
-## Responses contract
-
-Discover permitted model IDs from the authorized account, do not hardcode consumer model names. For direct HTTP inference use public `/v1/responses`, `store: false`, `stream: true`; pass context in `input`. See [preview restrictions](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations). Do not send forbidden convenience parameters such as `temperature`, `previous_response_id`, `conversation`, or `max_output_tokens`.
-
-Process SSE text deltas, but regard output as **successful only on `response.completed`**. Handle explicit failure, incompletion, timeout, cancellation and subscription usage errors separately. Keep account credentials inside a single local user process.
-
-## Current status
-
-Only offline request-validation and SSE transport parsing are implemented. No OAuth login, secret storage, IPC endpoint, HTTP transport or UI patch has been implemented or tested against an actual account.
+The replacement component inherits focus when the SwipeView focuses its page. The existing parent SidebarLeft handles Escape, dismiss, pin, detach and animation. QtWebEngine persists its own browser storage and cookies.
