@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-repo="$(cd -- "$(dirname -- "\${BASH_SOURCE[0]}")/.." && pwd)"
-if [[ "\${MABEL_SKIP_WEBENGINE_CHECK:-0}" == 1 ]]; then
+repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ "${MABEL_SKIP_WEBENGINE_CHECK:-0}" == 1 ]]; then
   echo 'WARNING: Skipping WebEngine crash probe by explicit request'
   exit 0
 fi
