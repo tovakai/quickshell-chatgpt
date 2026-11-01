@@ -50,7 +50,7 @@ class End4IntegrationTests(unittest.TestCase):
             self.assertIn("AiChat.qml not found", result.stderr)
 
     def test_bash_syntax(self):
-        for name in ("install.sh", "scripts/check-webengine.sh"):
+        for name in ("install.sh", "scripts/check-webengine.sh", "scripts/build-patched-quickshell.sh"):
             p = subprocess.run(["bash", "-n", str(REPO / name)], capture_output=True, text=True)
             self.assertEqual(p.returncode, 0, p.stderr)
 
