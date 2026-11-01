@@ -32,7 +32,7 @@ PanelWindow {
             id: button
             anchors.fill: parent
             hoverEnabled: true
-            onClicked: Quickshell.execDetached(["mabel-webui", "toggle"])
+            onClicked: Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/mabel-webui", "toggle"])
         }
     }
 }
