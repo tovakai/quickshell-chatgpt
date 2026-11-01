@@ -1,5 +1,3 @@
-# Quickshell Mabel sidebar
+# Quickshell toggle for Mabel's original WebUI
 
-shell.qml is an independent PanelWindow to avoid overwriting the end-4 sidebar. Use install.sh at repository root and launch quickshell -p ~/.config/quickshell/mabel/shell.qml.
-
-It runs the local bridge by Process + SplitParser and contains no model-provider URLs, bearer tokens, memories or prompt construction. See the root README.
+shell.qml contains only a small "M" edge tab that executes mabel-webui toggle. It intentionally has NO chat view, provider, API token, or model code. The actual Mabel WebUI runs in a separate Chromium app window under Hyprland. This gives us its existing mobile UI and full interactive tool approvals.
