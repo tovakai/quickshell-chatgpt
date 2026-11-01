@@ -1,3 +1,3 @@
-"""Local, unprivileged bridge primitives for quickshell-chatgpt."""
+"""Mabel/Odysseus Quickshell API bridge. No direct provider inference."""
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
