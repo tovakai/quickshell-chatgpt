@@ -26,6 +26,16 @@ if [[ ! -f "$target" ]]; then
   exit 1
 fi
 
+# End-4 may auto-reload this file immediately. If an active instance uses
+# stock Quickshell, injecting WebEngineView could crash the *desktop shell*.
+# Require an intentional stopped-shell switchover before touching its config.
+if pgrep -u "$(id -u)" -x quickshell >/dev/null 2>&1 || pgrep -u "$(id -u)" -x qs >/dev/null 2>&1; then
+  echo 'A Quickshell process is still running. Refusing a live QML replacement.' >&2
+  echo 'First build/test the patched Quickshell. Then stop the end-4 instance deliberately before installing.' >&2
+  echo 'Do not use MABEL_SKIP_WEBENGINE_CHECK to bypass this.' >&2
+  exit 1
+fi
+
 # This probe runs its own independent Quickshell process BEFORE changing
 # end-4's active QML. Stock builds crash if QtWebEngine is instantiated.
 bash "$repo/scripts/check-webengine.sh"
