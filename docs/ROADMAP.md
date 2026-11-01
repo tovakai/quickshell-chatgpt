@@ -1,28 +1,17 @@
 # Roadmap
 
-## v0.0.1 - skeleton
-- [x] Repository scaffold, license and architecture
-- [x] Offline Responses request contract
-- [x] SSE parser and unit tests
-- [ ] Live sign-in, network requests or Quickshell patch (intentionally deferred)
+## Initial rebuild
+- [x] Replace SIWC/Responses scaffold with Odysseus API bridge.
+- [x] Read chat-scoped tokens from private file, without exposing them to QML.
+- [x] Backend session/model inventory and persistent history.
+- [x] Chat/Agent streams, final replacements, Stop/Resume.
+- [x] Standalone Quickshell panel and installer.
+- [x] Offline protocol tests.
+- [ ] Test visually and end-to-end against a configured Mabel release test host.
 
-## v0.1.0 - auth proof
-- [ ] Host ID persistence and per-account registrations
-- [ ] PKCE, state, nonce and loopback callback
-- [ ] Browser consent with approved SIWC UX
-- [ ] Token exchange, JWKS verification and scope check
-- [ ] Protected token storage, refresh rotation and sign-out
-- [ ] Auth/error tests with mocks; no secrets in logs
-
-## v0.2.0 - inference proof
-- [ ] User-account model discovery
-- [ ] Authenticated streaming Responses request
-- [ ] Backpressure/cancellation, structured failures and rate limits
-- [ ] Offline/integration tests, first live hello world
-
-## v0.3.0 - Quickshell integration
-- [ ] Locally authenticated bridge IPC protocol
-- [ ] QML provider compatible with end-4 sidebar
-- [ ] Account selector, model picker, status/errors
-- [ ] Streaming display and persisted chat context
-- [ ] Uninstall and upstream upgrade/patch instructions
+## Later
+- [ ] Structured tool transcript and source cards.
+- [ ] Inline human approval through a dedicated Odysseus interactive-client protocol.
+- [ ] Markdown, attachments and media.
+- [ ] Hotkey toggle via Quickshell IPC, optional end-4 adapter.
+- [ ] Mock HTTP server integration suite and QML smoke tests.

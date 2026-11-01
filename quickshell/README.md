@@ -1,7 +1,5 @@
-# Quickshell adapter (planned)
+# Quickshell Mabel sidebar
 
-Target: end-4 illogical-impulse `~/.config/quickshell/ii`.
+shell.qml is an independent PanelWindow to avoid overwriting the end-4 sidebar. Use install.sh at repository root and launch quickshell -p ~/.config/quickshell/mabel/shell.qml.
 
-Existing installation uses `services/Ai.qml`, `services/ai/*ApiStrategy.qml`, and `modules/ii/sidebarLeft/AiChat.qml`. A future adapter should preserve Gemini and Mistral, avoid storing credentials in QML, and talk to the local bridge over a restricted channel.
-
-No production QML plugin or installer exists in v0.0.1. **Do not replace or modify your live dots using this directory yet.**
+It runs the local bridge by Process + SplitParser and contains no model-provider URLs, bearer tokens, memories or prompt construction. See the root README.

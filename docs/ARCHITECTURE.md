@@ -1,39 +1,35 @@
-# Architecture and security boundaries
+# Mabel sidebar architecture
 
-## Intended data flow
+## Required routing
 
-```text
-end-4 AI sidebar (QML)
-    | stdin/stdout or private local IPC (design TBD)
-    v
-unprivileged bridge process
-    | OAuth PKCE login, protected token storage, refresh
-    | HTTPS: model list and streamed Responses inference
-    v
-OpenAI public endpoints (never ChatGPT backend-api)
-```
+Quickshell is a front end only:
 
-The end-4 sidebar currently uses a `Process` + `SplitParser` and separate Gemini/OpenAI/Mistral strategies. We should add a separate provider/bridge adapter instead of patching its existing OpenAI API-key strategy or copying API tokens into QML.
+    QML → Python stdio bridge → Odysseus chat/session HTTP API → selected backend model provider
 
-## Authentication contract (not implemented)
+The model is selected by Odysseus. The bridge MUST NOT contact Strata, OpenAI, model inference APIs, or a parallel LLM tool router.
 
-Follow the [official OSS SIWC flow](https://developers.openai.com/siwc/token-sharing-open-source/sign-in):
+Odysseus endpoints used:
+- GET /api/companion/ping
+- GET /api/companion/models
+- GET /api/sessions
+- GET /api/history/{id}?limit=80
+- POST /api/session
+- POST /api/chat_stream
+- GET /api/chat/resume/{id}
+- POST /api/chat/stop/{id}
 
-- Stable `ext_agent_host_id` per installation.
-- Dynamic first-time registration; save issued client ID **per verified ChatGPT account/workspace**.
-- New state, nonce and PKCE verifier for each attempt; local loopback callback.
-- Verify ID token signature with JWKS, issuer, audience, expiry and nonce before accepting identity.
-- Require `chatgpt.tokens.use.direct` before attempting plan-backed inference.
-- Protect credentials; refresh tokens rotate and must be serialized. No credentials in logs, QML or repository.
-- Never reuse ~/.codex authentication files or scrape browser cookies.
-- Handle sign-out/revocation, multiple accounts and explicit consent.
+## Authentication and authority
 
-## Responses contract
+The bridge runs as the local user and reads an Odysseus API token from a chmod 600 local file. The token never enters QML, logs, or the model prompt. Without a token only localhost URLs are accepted, for explicit auth-disabled local deployments or SSH tunnels. Redirects are rejected to avoid forwarding Authorization to another origin.
 
-Discover permitted model IDs from the authorized account, do not hardcode consumer model names. For direct HTTP inference use public `/v1/responses`, `store: false`, `stream: true`; pass context in `input`. See [preview restrictions](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations). Do not send forbidden convenience parameters such as `temperature`, `previous_response_id`, `conversation`, or `max_output_tokens`.
+Model/endpoint IDs are validated against the backend inventory before new sessions; session permissions and effective model endpoint routing remain backend-owned.
 
-Process SSE text deltas, but regard output as **successful only on `response.completed`**. Handle explicit failure, incompletion, timeout, cancellation and subscription usage errors separately. Keep account credentials inside a single local user process.
+Odysseus specifically prohibits delegated bearer tokens from approving gated tools. This is a correct security distinction: user-facing approval requires the interactive Mabel app for now. A future inline approval feature needs purpose-built, human-confirmed client authentication from the Odysseus backend, not a loophole.
 
-## Current status
+## Stream and cancellation
 
-Only offline request-validation and SSE transport parsing are implemented. No OAuth login, secret storage, IPC endpoint, HTTP transport or UI patch has been implemented or tested against an actual account.
+Mabel SSE events are decoded incrementally. Reasoning deltas are hidden from the main visible response; final_response replaces earlier draft content; coarse tool activity is shown without dumping tool payloads. The bridge treats stream EOF without the [DONE] event as incomplete. Detached runs are canceled using the exact X-Odysseus-Run-Id to protect later concurrent sends; Resume uses Mabel's existing attachment endpoint.
+
+## Next steps
+
+Improve Markdown/agent traces, attachments and generated-image display, explicit backend-supported approval UI, and optional integration with end-4 using the same backend. Validate against the user's active Mabel release test branch.
