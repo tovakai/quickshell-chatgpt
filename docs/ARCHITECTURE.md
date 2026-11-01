@@ -1,35 +1,33 @@
-# Mabel sidebar architecture
+# Architecture
 
-## Required routing
+## The one and only chat interface
 
-Quickshell is a front end only:
+    Quickshell edge button or Hyprland keybind
+               ↓
+    Local window launcher (no Mabel API access)
+               ↓
+    Chromium app-mode narrow floating window
+               ↓
+    Real Mabel/Odysseus browser UI, including its normal login and interactive approvals
+               ↓
+    Odysseus backend: sessions, persistent memory, tools, authorization, SSE, models
+               ↓
+    Selected inference backend, possibly Strata
 
-    QML → Python stdio bridge → Odysseus chat/session HTTP API → selected backend model provider
+The launcher never contacts chat or inference HTTP endpoints and never receives authorization cookies. Chromium owns all WebUI networking. No custom memory, tool approval, chat SSE, or provider routing code exists in this repo.
 
-The model is selected by Odysseus. The bridge MUST NOT contact Strata, OpenAI, model inference APIs, or a parallel LLM tool router.
+At width 480px, the WebUI's built-in mobile rules (<=768px) activate.
 
-Odysseus endpoints used:
-- GET /api/companion/ping
-- GET /api/companion/models
-- GET /api/sessions
-- GET /api/history/{id}?limit=80
-- POST /api/session
-- POST /api/chat_stream
-- GET /api/chat/resume/{id}
-- POST /api/chat/stop/{id}
+## Windowing decision
 
-## Authentication and authority
+Current Quickshell 0.3.2 on Arch is reported to crash on QtWebEngineView because Quickshell constructs its QGuiApplication with argc=0. Avoid risking the running desktop shell: the Quickshell panel only triggers a dedicated Chromium app-mode window, with Hyprland managing its size and location.
 
-The bridge runs as the local user and reads an Odysseus API token from a chmod 600 local file. The token never enters QML, logs, or the model prompt. Without a token only localhost URLs are accepted, for explicit auth-disabled local deployments or SSH tunnels. Redirects are rejected to avoid forwarding Authorization to another origin.
+The browser is a separate process, not composited inside the QML layer-shell surface. If native Quickshell WebEngine becomes safe, direct embedding can be evaluated separately without rewriting Mabel.
 
-Model/endpoint IDs are validated against the backend inventory before new sessions; session permissions and effective model endpoint routing remain backend-owned.
+## Authentication
 
-Odysseus specifically prohibits delegated bearer tokens from approving gated tools. This is a correct security distinction: user-facing approval requires the interactive Mabel app for now. A future inline approval feature needs purpose-built, human-confirmed client authentication from the Odysseus backend, not a loophole.
+The Chromium profile uses Mabel's native cookie-based interactive authentication, and the backend applies its normal CSRF, ownership, and tool-approval checks. Signing in once in that dedicated profile is expected. No delegated API bearer token is used.
 
-## Stream and cancellation
+## Follow-up
 
-Mabel SSE events are decoded incrementally. Reasoning deltas are hidden from the main visible response; final_response replaces earlier draft content; coarse tool activity is shown without dumping tool payloads. The bridge treats stream EOF without the [DONE] event as incomplete. Detached runs are canceled using the exact X-Odysseus-Run-Id to protect later concurrent sends; Resume uses Mabel's existing attachment endpoint.
-
-## Next steps
-
-Improve Markdown/agent traces, attachments and generated-image display, explicit backend-supported approval UI, and optional integration with end-4 using the same backend. Validate against the user's active Mabel release test branch.
+Verify browser app_id with hyprctl clients -j on the actual machine; then consider a non-destructive hide/show toggle and integration into the existing end-4 Quickshell config.
