@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-repo="$(cd -- "$(dirname -- "\${BASH_SOURCE[0]}")" && pwd)"
-config="\${QS_CONFIG_DIR:-\${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/ii}"
+repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+config="${QS_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/ii}"
 target="$config/modules/ii/sidebarLeft/AiChat.qml"
 backup="$target.before-mabel"
-mode="\${1:-install}"
+mode="${1:-install}"
 
 if [[ "$mode" == restore ]]; then
   if [[ ! -f "$backup" ]]; then
@@ -30,7 +30,7 @@ fi
 # end-4's active QML. Stock builds crash if QtWebEngine is instantiated.
 bash "$repo/scripts/check-webengine.sh"
 
-url="\${MABEL_URL:-http://127.0.0.1:7000/}"
+url="${MABEL_URL:-http://127.0.0.1:7000/}"
 python3 - "$repo/end4/AiChat.qml" "$target" "$backup" "$url" <<'PY'
 import json
 import os
