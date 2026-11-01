@@ -181,10 +181,12 @@ class MabelClient:
                     elif kind == "tool_start":
                         self.emit({"type": "activity", "session": session_id, "message": "Using " + str(event.get("tool") or "tool")})
                     elif kind == "ask_user":
-                        # API tokens cannot approve tool execution in Odysseus. Keep
-                        # its interactive approval boundary intact.
-                        question = event.get("question") or event.get("message") or "Mabel needs your input"
-                        self.emit({"type": "approval_needed" if (event.get("approval_id") or event.get("kind") == "tool_approval") else "activity",
+                        # Odysseus wraps ask_user fields in the event's data object.
+                        # API tokens cannot authorize gated tool actions.
+                        payload = event.get("data") if isinstance(event.get("data"), dict) else event
+                        question = payload.get("question") or payload.get("message") or "Mabel needs your input"
+                        gated = payload.get("kind") == "tool_approval" and bool(payload.get("approval_id"))
+                        self.emit({"type": "approval_needed" if gated else "activity",
                                    "session": session_id, "message": str(question)[:500]})
                     elif kind in ("chat_terminal", "agent_terminal"):
                         metrics = event.get("data") or {}
