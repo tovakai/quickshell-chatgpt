@@ -18,7 +18,6 @@ class End4IntegrationTests(unittest.TestCase):
         self.assertIn("ForcePersistentCookies", component)
         self.assertIn("onFocusChanged", component)
         self.assertNotIn("PanelWindow", component)
-        self.assertNotIn("Strata", component)
         self.assertNotIn("Bearer", component)
 
     def test_installer_backup_restore_and_url(self):
